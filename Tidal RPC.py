@@ -17,249 +17,166 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from pypresence import Presence, InvalidID
-from os import system, name
-from time import sleep
-import sys
+import time
 import psutil
 import win32gui
 import win32process
+from pypresence import Presence, PipeClosed, InvalidID, DiscordNotFound
 
-# Application ID (Enter yours here).
-client_id = "0000000000000000000"
-discord_alive = False
-discord_connected = False
-RPC = Presence(client_id)
-tidal_paused = True
-tidal_alive = False
+class TidalRPC:
+    def __init__(self, client_id):
+        self.client_id = client_id
+        self.rpc = None
+        self.last_track = None
+        self.start_time = None
+        self.tidal_pids = []
 
-# Returns a list of windows related to the passed process ID.
-def get_windows_by_pid(pid):
-    pid_windows = []
-
-    def callback(hwnd, hwnds):
-        _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
-        if win32gui.IsWindowVisible(hwnd) and pid == found_pid:
-            hwnds.append(hwnd)
-        return True
-
-    win32gui.EnumWindows(callback, pid_windows)
-    return pid_windows
-
-
-def get_tidal_info():
-    tidal_processes = []
-    all_titles = []
-
-    # Finds all processes related to TIDAL.
-    for process in psutil.process_iter(attrs=['pid', 'name']):
+    def connect_discord(self):
+        """
+        Attempts to connect. Only assigns self.rpc if successful.
+        """
         try:
-            if "tidal" in process.info['name'].lower():
-                tidal_processes.append(process.info['pid'])
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            continue
+            # Create a new instance
+            client = Presence(self.client_id)
+            client.connect()
+            
+            # Only if the line above succeeds, do we assign it
+            self.rpc = client
+            print("Connected to Discord RPC.")
+            return True
+        except (DiscordNotFound, ConnectionRefusedError, FileNotFoundError):
+            print("Discord not found or not running.")
+            self.rpc = None
+            return False
+        except Exception as e:
+            print(f"Error connecting to Discord: {e}")
+            self.rpc = None
+            return False
 
-    # Finds GUI windows related to each PID, if they exist.
-    for tidal_process_id in tidal_processes:
-        windows = get_windows_by_pid(tidal_process_id)
-        # If a PID has a GUI window, add its title to the titles list.
-        for w in windows:
-            window_text = win32gui.GetWindowText(w)
-            if window_text:
-                all_titles.append(window_text)
-
-    # Process titles to extract song information.
-    if all_titles:
-        song_info = all_titles[0].split(" - ")
-        if len(song_info) >= 2:
-            return song_info[0], song_info[1]
-
-    return None, None
-    
-# If Discord was closed, safety check to see if it's running again before attempting to reconnect. Otherwise it crashes with PipeClosed exception.
-def processRunning(processName):
-    #print("Debug: looking for process " + processName, end='\n')
-    # Iterate over the all the running process
-    for p in psutil.process_iter(['name']):
-        try:
-            # Check if process name contains the given name string.
-            if processName.lower() in p.info['name'].lower():
-                #print("Debug: " + processName + " found!", end='\n')
-                return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            continue
-    #print("Debug: " + processName + " NOT found!", end='\n')
-    return False;
-
-# OS independent clear screen function.
-def clear():
- 
-    # for windows
-    if name == 'nt':
-        _ = system('cls')
- 
-    # for mac and linux(here, os.name is 'posix')
-    else:
-        _ = system('clear')
-
-# Checks if Discord is running and connects to the rich presence application, otherwise goes to sleep for 60 seconds and retries.
-def connectDiscord():
-    global discord_connected
-    global RPC
-    while not discord_connected:
-        try:
-            RPC.connect()
-        # Notify the user if their entered client ID is invalid.
-        except InvalidID:
-            print("Invalid client ID. Please check the entered value in the code.")
-            sleep(5)
-            quit(1)
-        except Exception:
-            print("Discord not running, going to sleep for one minute.", end='\n')
+    def refresh_tidal_pids(self):
+        """Finds ALL Process IDs associated with Tidal."""
+        self.tidal_pids = []
+        for proc in psutil.process_iter(['pid', 'name']):
             try:
-                print("Hit CTRL-C if you want to terminate the script.", end='\n')
-                sleep(60)
-                clear()
-            except KeyboardInterrupt:
-                quit(0)
-        else: discord_connected = True
+                if proc.info['name'] and "tidal" in proc.info['name'].lower():
+                    self.tidal_pids.append(proc.info['pid'])
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+
+    def get_current_track(self):
+        # 1. If we don't have PIDs, find them.
+        if not self.tidal_pids:
+            self.refresh_tidal_pids()
         
-def waitForTidal():
-    global tidal_alive
-    while not tidal_alive:
-        clear()
-        print("Tidal not running, going to sleep for one minute.", end='\n')
-        try:
-            print("Hit CTRL-C if you want to terminate the script.", end='\n')
-            sleep(60)
-            tidal_alive = processRunning("tidal")
-        except KeyboardInterrupt:
-            quit(0)
-    clear()
-    print("TIDAL is now running!", end='\n')
+        # If still no PIDs, Tidal isn't running.
+        if not self.tidal_pids:
+            return None, None
 
-# Handles the updating of rich presence information while both TIDAL and Discord are found
-def updateRPC():
-    global RPC
-    global details
-    global tidal_alive
-    tidal_alive = processRunning("tidal")
-    if tidal_alive:
-        RPC.update(
-            state=f"by {details[1]}",
-            details=details[0],
-            large_image="tidallogo",
-            large_text="TIDAL",
-            small_image="hra",
-            small_text="Streaming lossless in up to 24-bit 192kHz."
-        )
-        print("Rich presence successfully updated!", end='\n')
-    else: print("Tidal process not found.", end='\n')
-    
-# Function to set the rich presence status to Paused when TIDAL is no longer playing or info can't be found
-def pauseRPC():
-    global RPC
-    global tidal_alive
-    global tidal_paused
-    tidal_alive = processRunning("tidal")
-    if tidal_alive:
-        RPC.update(
-            details="Paused",
-            large_image="tidallogo",
-            large_text="TIDAL"
-        )
-        print("Streaming paused or window closed...", end='\n')
-        print("Rich presence set to Paused.", end='\n')
-        tidal_paused = True
-    else: print("Tidal process not found.", end='\n')
-    
-# Function to terminate the script, usually called from KeyboardInterrupt exception
-def quit(code):
-    print("Script terminated by user. Exiting.", end='\n')
-    sleep(1)
-    try:
-        RPC.close()
-        print("Successfully closed socket.", end='\n')
-        sleep(1)
-        sys.exit(code)
-    except Exception:
-        sys.exit(code)
+        found_titles = []
 
-# Call the function to attempt to connect to Discord
-connectDiscord()
-# Update your status every 15 seconds (to stay within rate limits).
-while True:
-    discord_alive = processRunning("discord")
-    if not discord_alive:
-        print("Discord process not found, closing socket and reconnecting in 15 seconds...", end='\n')
-        RPC.close()
-        discord_connected = False
-        sleep(15)
-        connectDiscord()
-    tidal_alive = processRunning("tidal")
-    if tidal_alive:
+        def callback(hwnd, _):
+            if win32gui.IsWindowVisible(hwnd):
+                try:
+                    _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
+                    if found_pid in self.tidal_pids:
+                        title = win32gui.GetWindowText(hwnd)
+                        if title:
+                            found_titles.append(title)
+                except:
+                    pass
+        
         try:
-            #print("Debug: TIDAL is running!", end='\n')
-            # Attempt to get info from TIDAL
-            details = get_tidal_info()
-            if details[0] and details[1]:
-                #print("Debug: TIDAL is playing, successfully retrieved track info...", end='\n')
-                tidal_paused = False
-            else:
-                #print("Debug: Unable to get song information.", end='\n')
-                discord_alive = processRunning("discord")
-                if discord_alive and discord_connected:
-                    pauseRPC()
-                elif discord_alive and not discord_connected:
-                    discord_connected = False
-                    clear()
-                    print("Discord connection lost, attempting to reconnect.", end='\n')
-                    connectDiscord()
-                    print("Discord connection restored! Updating on the next cycle.", end='\n')
+            win32gui.EnumWindows(callback, None)
+        except Exception:
+            pass
+
+        # 2. Parse Titles
+        # Look for "Song - Artist" format
+        for title in found_titles:
+            if " - " in title:
+                parts = title.rsplit(" - ", 1)
+                if len(parts) == 2:
+                    return parts[0], parts[1] # Track, Artist
+        
+        # 3. If we found "TIDAL" but no song info, it's paused.
+        if "TIDAL" in found_titles:
+            return "PAUSED", None
+        
+        # 4. If we found nothing, maybe PIDs changed (Tidal restarted). 
+        # Clear PIDs so we scan for new ones next loop.
+        self.tidal_pids = [] 
+        return None, None
+
+    def run(self):
+        print("Tidal RPC Script Started (Robust Connection Support).")
+        
+        while True:
+            # ---------------------------------------------------------
+            # 1. CONNECTION CHECK
+            # ---------------------------------------------------------
+            if self.rpc is None:
+                print("Attempting to connect to Discord...")
+                if not self.connect_discord():
+                    # If connect fails, wait 10s and try again. 
+                    # Don't run the rest of the loop.
+                    time.sleep(10)
+                    continue
+
+            # ---------------------------------------------------------
+            # 2. GET TRACK INFO
+            # ---------------------------------------------------------
+            track, artist = self.get_current_track()
+
+            # ---------------------------------------------------------
+            # 3. UPDATE PRESENCE
+            # ---------------------------------------------------------
+            try:
+                if track and artist:
+                    if track == "PAUSED":
+                        if self.last_track != "PAUSED":
+                            print("Tidal is Paused.")
+                            self.rpc.clear()
+                            self.last_track = "PAUSED"
+                    else:
+                        # It's a real song
+                        sig = f"{track}-{artist}"
+                        if sig != self.last_track:
+                            print(f"Now Playing: {track} by {artist}")
+                            self.start_time = time.time()
+                            self.last_track = sig
+
+                        self.rpc.update(
+                            details=track,
+                            state=f"by {artist}",
+                            large_image="tidallogo",
+                            large_text="TIDAL",
+                            small_image="hra",
+                            small_text="High Fidelity",
+                            start=self.start_time
+                        )
                 else:
-                    print("Discord process not found or not connected.", end='\n')
-                    tidal_paused = True
-        # A catch all exception. The program should continue attempting to find the TIDAL window
-        # and maintain its Discord connection under all circumstances.
-        except Exception:
-            print("Unable to get song information.", end='\n')
-            discord_alive = processRunning("discord")
-            if discord_alive and discord_connected:
-                pauseRPC()
-            else:
-                print("Discord process not found or not connected.", end='\n')
-                tidal_paused = True
-    else:
-        #print("Debug: Tidal process not found.", end='\n')
-        RPC.close()
-        discord_connected = False
-        tidal_paused = True
-        waitForTidal()
-        connectDiscord()
-        print("Discord connection restored! Updating on the next cycle.", end='\n')
-    if not tidal_paused:
-        try:
-            discord_alive = processRunning("discord")
-            if discord_alive and discord_connected:
-                #print("Debug: Attempting to update Rich presence...", end='\n')
-                updateRPC()
-            else:
-                discord_connected = False
-                clear()
-                print("Discord connection lost, attempting to reconnect.", end='\n')
-                connectDiscord()
-                print("Discord process now found! Updating on the next cycle.", end='\n')
-        except Exception:
-            discord_connected = False
-            clear()
-            print("Discord connection lost or Discord closed, attempting to reconnect.", end='\n')
-            connectDiscord()
-            print("Discord process now found! Updating on the next cycle.", end='\n')
+                    # Tidal not found or closed
+                    if self.last_track is not None:
+                        print("Tidal closed or not found.")
+                        self.rpc.clear()
+                        self.last_track = None
+                        self.tidal_pids = [] # Force refresh PIDs
+            
+            except (PipeClosed, InvalidID, AssertionError) as e:
+                # This catches the specific Discord disconnect errors
+                print(f"Connection lost ({e}). Resetting...")
+                self.rpc = None
+            except Exception as e:
+                # This catches 'You must connect your client' or other generic errors
+                print(f"RPC Error: {e}. Resetting connection...")
+                self.rpc = None
+
+            time.sleep(15)
+
+if __name__ == "__main__":
+    CLIENT_ID = ""
+    bot = TidalRPC(CLIENT_ID)
     try:
-        # MUST be no less than 15 seconds to remain within Discord rate limits.
-        print("Sleeping for 15 seconds. Hit CTRL-C if you want to terminate the script.", end='\n')
-        sleep(15)
-        clear()
-    # Terminate properly on user CTRL-C
+        bot.run()
     except KeyboardInterrupt:
-        quit(0)
+        print("Exiting...")
