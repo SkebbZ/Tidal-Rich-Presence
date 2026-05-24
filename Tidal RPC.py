@@ -18,10 +18,14 @@
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import time
+import os
 import psutil
 import win32gui
 import win32process
 from pypresence import Presence, PipeClosed, InvalidID, DiscordNotFound
+
+def clear():
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 class TidalRPC:
     def __init__(self, client_id):
