@@ -5,7 +5,7 @@ global hBatFile := 0
 global pid := 0
 
 ; Setup Tray icon and menu items
-TraySetIcon("C:\Users\thoma\Tidal RPC\RPCapp.ico")
+TraySetIcon("C:\Users\USERNAME\Tidal RPC\RPCapp.ico")
 A_TrayMenu.Add("Show / Hide TIDAL_RPC", TrayClick)
 A_TrayMenu.Add("Close TIDAL_RPC", CloseItem)
 A_TrayMenu.Default := "Show / Hide TIDAL_RPC"
