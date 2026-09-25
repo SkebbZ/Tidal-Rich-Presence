@@ -14,7 +14,7 @@ A_TrayMenu.Default := "Show / Hide TIDAL_RPC"
 DetectHiddenWindows(true)
 
 ; Output var uses reference (&pid) in v2
-Run('"C:\Users\thoma\Tidal RPC\pingu.bat"', , "Hide", &pid)
+Run('"C:\Users\USERNAME\Tidal RPC\pingu.bat"', , "Hide", &pid)
 
 if WinWait("ahk_pid " pid, , 5) {
     hBatFile := WinExist()
