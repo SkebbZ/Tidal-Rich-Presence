@@ -1,58 +1,125 @@
-# Python-based rich presence for TIDAL.
+# Python-based Rich Presence for TIDAL
 
-Neither I nor this program are affiliated with either TIDAL or Discord in any way.
+Neither I nor this program are affiliated with TIDAL or Discord in any way.  
+TIDAL, the wordmark, and logo are registered trademarks of TIDAL Music AS.
 
-TIDAL, the wordmark and logo are registered trademarks of TIDAL Music AS.
+A lightweight Discord Rich Presence integration for TIDAL on Windows. Displays your current track, artist, high-fidelity badges, and album artwork on your Discord profile.
 
-## Set-Up
+---
 
-This project provides a simple and safe method of getting basic TIDAL rich presence on your profile, featuring the song name and artist.
+## 1. Discord Application Setup (Required for All Methods)
 
-1. Run the command `python -m pip install pypresence`, as this module is needed to interact with Discord.
-2. If you wish to use the GUI variant, you will additionally need `python -m pip install PySimpleGUI` and `python -m pip install psgtray`
-3. Download this project's [latest release](https://github.com/AeJae/Tidal-Rich-Presence/releases/latest) (.zip).
-4. Head to the [Discord developer portal](https://discord.com/developers/docs/intro).
-5. Select applications.
-6. Sign in to Discord.
-7. Click "New Application".
-8. Under "General Information", name your application `TIDAL`.
-9. Under "Rich Presence", add the two images contained in the downloaded zip, `hra` and `tidallogo`. Do __NOT__ change the file names.
-10. Ensure the images have saved.
-11. Head back to "General Information", and copy your "Application ID" into the `client_id` variable in `Tidal RPC.py`.
+Before running the application (either as an `.exe` or from source code), you must create a Discord Application to host your Rich Presence artwork assets:
 
-You're all set! Simply run `Tidal RPC.py`, and you should be able to see the rich presence in action.
+1. Head to the [Discord Developer Portal](https://discord.com/developers/applications) and sign in.
+2. Click **New Application**.
+3. Under **General Information**, set the Application Name to `TIDAL` *(this name will display on your Discord profile as "Playing TIDAL")*.
+4. Copy your **Application ID / Client ID** shown under General Information.
+5. In the left menu, navigate to **Rich Presence** > **Art Assets**.
+6. Upload the two image assets (`hra` and `tidallogo`) included in the repository assets or release `.zip`:
+   > ⚠️ **Important:** Do **NOT** rename these image files! The script explicitly calls `hra` and `tidallogo`.
+7. Click **Save Changes**.
 
-This program requires that your TIDAL window remains open. It does not need to be in focus (apps can be on top of it), but it cannot be minimised or in your system tray.
+---
 
-## Running the CLI/GUI variants without any terminal windows
-Create a simple .bat file running the CLI or GUI python code with
+## 2. Installation & Usage Options
 
-`@echo off`
+Choose **Option A** if you want a ready-to-use standalone executable, or **Option B** if you want to run or modify the Python source code directly.
 
-`python "pathToFile\Tidal RPC GUI.py"`
+### Option A: Pre-Built Executable (Easiest — No Python Required)
 
-Edit the AHK script and point it to your created .bat file.
+1. Download the latest version from the [Releases Page](https://github.com/SkebbZ/Tidal-Rich-Presence/releases):
+   * **`TidalRPC_Setup.exe`** *(Installer — Recommended)*: Installs to `Program Files`, creates Start Menu/Desktop shortcuts, and includes an uninstaller.
+   * **`TidalRPC.exe`** *(Portable)*: Single executable file that can be placed and run from any folder.
+2. Launch **TIDAL RPC**.
+3. Paste your copied **Discord Client ID** into the top text box and click **Save**.
+4. Play music on the TIDAL desktop application!
 
-Compile the AHK script into an executable file (use compression: NONE to avoid angry antivirus software).
+---
 
-<a href="https://imgbb.com/"><img src="https://i.ibb.co/xDJk8Vf/bilde.png" alt="bilde" border="0"></a>
+### Option B: Running from Python Source Code (.py)
 
-Run the file! Optionally add it to startup by putting a shortcut to it in the startup folder, which you can access by using WindowsKey + R and entering `shell:startup`
+#### 1. Install Dependencies
+Open your terminal or command prompt and install the required Python packages:
 
-Note: the CLI variant may start hidden in the system tray, and can be hidden/restored by doubleclicking the tray icon (looks like a C:> ).
+```bash
+# Core requirements (CLI version)
+python -m pip install pypresence psutil pywin32
 
-## Media
-Rich presence preview:
+# Additional requirements (GUI version)
+python -m pip install PySimpleGUI psgtray
+```
 
-<img src="https://aejae.github.io/img/tidal-rp-media.png" alt="Project in Action">
+#### 2. Running the CLI Script
+1. Clone or download this repository.
+2. Open `Tidal RPC.py` in a text editor and paste your Application ID into the `CLIENT_ID` variable:
+   ```python
+   CLIENT_ID = "YOUR_DISCORD_CLIENT_ID_HERE"
+   ```
+3. Run the script:
+   ```cmd
+   python "Tidal RPC.py"
+   ```
 
-GUI preview (set your own themes in PySimpleGUI)
+#### 3. Running the GUI Script
+1. Run the GUI script:
+   ```cmd
+   python "Tidal RPC GUI.py"
+   ```
+2. Paste your **Discord Client ID** into the top text box and click **Save** *(this automatically saves to `config.json` for future launches)*.
 
-<a href="https://imgbb.com/"><img src="https://i.ibb.co/yh4zM01/bilde.png" alt="GUI version" border="0"></a>
+---
 
-Notifications and minimize to tray preview:
+> ℹ️ **Important Window Note:**  
+> TIDAL must remain open on your system for metadata enumeration. It can sit in the background behind other windows, but it **cannot** be minimized to the system tray or completely closed.
 
-<a href="https://imgbb.com/"><img src="https://i.ibb.co/WtX0zFP/bilde.png" alt="Notification and hide in system tray" border="0"></a>
+---
 
-## A Project by AJSF ([@AeJae](https://github.com/AeJae))
-<a href="https://aejae.github.io/" target="_blank"><img src="https://aejae.github.io/img/logo.png" alt="Logo" width="70px"></a>
+## Running Source Scripts in the Background via AutoHotkey (Optional)
+
+If running raw Python scripts directly, you can launch them silently in the background using a batch script and the included AutoHotkey v2 wrapper script (`TIDAL RPC.ahk`).
+
+1. Create a batch file (e.g., `run_tidal_rpc.bat`) to launch your script:
+   ```bat
+   @echo off
+   python "C:\path\to\Tidal RPC GUI.py"
+   ```
+
+2. Download [`TIDAL RPC.ahk`](https://github.com/SkebbZ/Tidal-Rich-Presence/blob/main/TIDAL%20RPC.ahk) from this repository.
+
+3. Open `TIDAL RPC.ahk` in a text editor and update the paths to match your local setup:
+   ```autohotkey
+   ; Update the icon path
+   TraySetIcon("C:\path\to\your\RPCapp.ico")
+
+   ; Update the path to your batch file
+   Run('"C:\path\to\your\run_tidal_rpc.bat"', , "Hide", &pid)
+   ```
+
+4. Compile the script using **Ahk2Exe** *(Set `Compression: NONE` to prevent false-positive security flags)*.
+
+![AHK Compiler Settings](https://i.ibb.co/wNtdVRCR/image.png)
+
+5. Run the compiled executable, or place a shortcut to it in your Windows Startup folder (`Win + R` -> type `shell:startup`).
+
+---
+
+## Media & Previews
+
+**Rich Presence Preview:**
+
+![Project in Action](https://aejae.github.io/img/tidal-rp-media.png)
+
+**GUI Preview:**
+
+![GUI version](https://i.ibb.co/yh4zM01/bilde.png)
+
+**System Tray & Notifications Preview:**
+
+![Notification and hide in system tray](https://i.ibb.co/WtX0zFP/bilde.png)
+
+---
+
+## Credits
+Project maintained by AJSF ([@AeJae](https://github.com/AeJae))  
+[![Logo](https://aejae.github.io/img/logo.png)](https://aejae.github.io/)
