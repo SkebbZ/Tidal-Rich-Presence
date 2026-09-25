@@ -35,7 +35,7 @@ Edit the AHK script and point it to your created .bat file.
 
 Compile the AHK script into an executable file (use compression: NONE to avoid angry antivirus software).
 
-<a href="https://imgbb.com/"><img src="https://i.ibb.co/xDJk8Vf/bilde.png" alt="bilde" border="0"></a>
+<a href="https://imgbb.com/"><img src="[https://i.ibb.co/xDJk8Vf/bilde.png](https://i.ibb.co/wNtdVRCR/image.png)" alt="bilde" border="0"></a>
 
 Run the file! Optionally add it to startup by putting a shortcut to it in the startup folder, which you can access by using WindowsKey + R and entering `shell:startup`
 
